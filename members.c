@@ -1,262 +1,197 @@
-#include "members.h"
+#include <stdio.h>
+#include<string.h>
+#include <stdbool.h>
+#include<sys/types.h>
+#include<unistd.h>
+#include<sys/wait.h>
+#include<stdlib.h>
 
-T_Record* members[MAX_MEMBERS]; // 회원정보데이터 (전역)
-int _count = 0;
+#include<signal.h>
+typedef struct route_and_distance{
+	int distance;
+	int route[50];
+	char best_route_uptonow[200]; 
+}rad;
+rad ans = {2000000008};
+int n=0,process_count =1, process_limit, parent_pid;;
+unsigned long long route_count =0;
+int dist[50][50],fd[2];
+bool visited[50] ={true,};
+int length(rad arr, int k);
+rad min(rad a, rad b);
+rad pre_clear(rad arr, int k);
+rad pre_add(rad arr, int k, int add_num);
+rad chld(rad prefix);
+int back(rad arr,int k);
+void parent(int k,rad arr);
+void handler(int sig);
+void sigint_handler(int sig);
+rad init_arr(rad arr);
+int main(int argc, char *argv[] ){
+	parent_pid = getpid();
+	signal(SIGCHLD,handler);
+	signal(SIGINT,sigint_handler);
+	rad pref;
+	pref = init_arr(pref);
+	pref.distance= 0;
+	pipe(fd);
+	FILE *fp = fopen(argv[1],"r");
+	char strTemp[255];
+	fgets(strTemp,sizeof(strTemp),fp);
+	char *ptr = strtok(strTemp, " ");
+	while(ptr!=NULL){
+		ptr = strtok(NULL, " ");
+		n++;
+	}
+	
+	rewind(fp);
 
-int m_is_available(){
-    int i;
-    for(i=0; i<MAX_MEMBERS; i++){
-        if(members[i]==NULL) {
-#ifdef DEBUG
-            printf("[m_is_available] yes\n");
-#endif
-            return 1;
-        }
-    }
-#ifdef DEBUG
-    printf("[m_is_available] no\n");
-#endif
-    return 0;
+	for(int i=0; i<n; i++){
+		 for(int j=0; j<n; j++){
+      			fscanf(fp,"%d", &dist[i][j]);
+  		 }
+	 }
+	process_limit = atoi(argv[2]);
+
+
+	ans=init_arr(ans);
+	parent(n-12,pref);
+	while( (wait(NULL)) > 0 );
+	printf("\nShortest distance: %d  The number of route: %lld   \nShortest route: %s \n",ans.distance,route_count*2*3*4*5*6*7*8*9*10*11*12 ,ans.best_route_uptonow);
+
+}
+char* int_to_string(rad arr){
+	char *result;
+	result = malloc(200);
+	for(int i=0; i<length(arr,n);i++){
+		char tmp[5];
+		int num = arr.route[i];
+		sprintf(tmp, "%d", num);
+		strcat(result,tmp);
+		strcat(result, "->");
+	}	
+	return result;
+}
+int length(rad arr, int k){
+	int c=1;
+	for(int i=1; i<k; i++){
+		if(arr.route[i]!=0) c++;
+		else break;
+	}
+	return c;
+}
+rad init_arr(rad arr){
+	for(int i=0; i<50; i++){
+		arr.route[i]=0;
+	}
+	return arr;
+}
+rad pre_add(rad arr, int k, int add_num){
+	for(int i=1; i<k; i++){
+		if(arr.route[i]==0){
+			arr.route[i] = add_num;
+			break;
+		}
+	}
+	return arr;
+}
+rad pre_clear(rad arr, int k){
+	arr.route[length(arr,n)-1] = 0;
+	return arr;
+}
+rad min(rad a, rad b){
+	if(a.distance<b.distance) return a;
+	else return b;
+}
+rad chld(rad prefix){
+	rad ret;
+	ret.distance=1000000007;
+	if(length(prefix,n)== n){
+		prefix.distance +=dist[back(prefix,n)][0];
+		return prefix;
+	}
+	for(int i=0; i<n; i++){
+		if(visited[i]==true) continue;
+		int here = back(prefix,n);
+		if(dist[here][i]==0) continue ;
+		visited[i]=true;
+		prefix = pre_add(prefix,n,i);
+		prefix.distance +=dist[here][i];
+		ret = min(chld(prefix),ret);
+
+		visited[i] = false;
+		prefix.distance -= dist[here][i];
+		prefix = pre_clear(prefix,n);
+	}
+	return ret;
+}
+int back(rad arr,int k){
+	int tmp = arr.route[0];
+	for(int i=1; i<k; i++){
+
+		if(arr.route[i]==0) break;
+		tmp = arr.route[i];
+	}
+	return tmp;
+}
+void parent(int k, rad arr){
+	int pid;
+	if(length(arr,n)==k){
+		route_count++;
+	
+		while(process_count>process_limit){
+                        };
+                        pid = fork();
+			route_count++;
+                        process_count++;
+		if(pid ==0){
+			printf("A child process is executed\n");	
+			rad tmp = chld(arr);
+			int current_distance = tmp.distance;
+			write(fd[1],&current_distance,sizeof(int));
+			char route_string[200];
+		 	strcpy(route_string,int_to_string(tmp));
+              	  	write(fd[1], route_string,200);
+			exit(0) ;	
+		}
+	}
+	else{	
+		for(int i=0; i<n; i++){
+	    		if(visited[i]==true) continue;
+			int here = back(arr,n);
+			if(dist[here][i]==0) continue ;
+	    		visited[i] = true;
+	    		arr= pre_add(arr,n,i);
+			arr.distance+=dist[here][i];
+			parent(k,arr);
+		 	visited[i] = false;
+			arr.distance -= dist[here][i];
+			arr =pre_clear(arr,n);
+	  }
+	}
+
 }
 
-int m_first_available(){
-    int i;
-    for(i=0; i<MAX_MEMBERS; i++){
-        if(members[i]==NULL) return i;
-    }
-    return -1;
+void handler (int sig){
+	
+		int tmp2;
+		char best_route[200];
+		process_count--;
+		read(fd[0], &tmp2, sizeof(int));
+		read(fd[0], best_route, 200);
+		printf("A Child Process is Dead. It returned valuses 1. Distance:%d  2. Path:  %s \n",tmp2,best_route);
+		if(ans.distance>tmp2){	
+			printf("\nThe shortest route was updated  1.  Distanbe: %d   2. Path: %s\n\n",tmp2,best_route);
+			ans.distance = tmp2;
+			strcpy(ans.best_route_uptonow,best_route);
+		}
+		
+	
 }
-
-int m_count(){
-    return _count;
-}
-
-void m_create(int i, char* n, char* m, char* ph, int b, char* c){
-    int index = m_first_available();
-    members[index] = (T_Record*)malloc(sizeof(T_Record));
-    T_Record* p = members[index];
-    p->id = i;
-    strcpy(p->name, n);  
-    strcpy(p->membership, m);
-    strcpy(p->phone, ph);
-    p->birthdate = b;
-    strcpy(p->city, c);
-    _count++;
-#ifdef DEBUG
-    printf("[m_create] create %s\n", n);
-#endif
-}
-
-T_Record* m_search_by_id(int id){
-    int i;
-    for(i=0; i<MAX_MEMBERS; i++){
-        if(members[i]!=NULL && members[i]->id == id) return members[i];
-    }
-    return NULL;
-}
-
-T_Record* m_search_by_name(char* n){
-    int i;
-    for(i=0; i<MAX_MEMBERS; i++){
-        if(members[i]!=NULL && strcmp(members[i]->name, n)==0) return members[i];
-    }
-    return NULL;
-}
-
-T_Record* m_search_by_membership(char* m){
-    int i;
-    for(i=0; i<MAX_MEMBERS; i++){
-        if(members[i]!=NULL && (strcmp(members[i]->membership, m)==0)) return members[i];
-    }
-    return NULL;
-}
-
-void m_update(T_Record* p, char* n, char* m, char* ph, int b, char* c){
-    strcpy(p->name, n);
-    strcpy(p->membership, m);
-    strcpy(p->phone, ph);
-    p->birthdate = b;
-    strcpy(p->city, c);
-}
-
-void m_delete(T_Record* p){
-    int i, index;
-    for(i=0; i<MAX_MEMBERS; i++)
-        if(members[i]==p) {
-            index=i;
-            break;
-        }
-    free(p);
-    members[index] = NULL;
-    _count--;
-}
-
-char* m_to_string(T_Record* p){
-    static char str[120];
-    sprintf(str, "[ID:%d] %s / %s / %s / %d / %s", p->id, p->name, p->membership, p->phone, p->birthdate, p->city);
-    return str;
-}
-
-T_Record** m_get_records() {
-    return members;
-}
-
-void m_get_all(T_Record* a[]){
-    int i, c=0;
-    for(i=0; i<MAX_MEMBERS; i++){
-        if(members[i]!=NULL){
-#ifdef DEBUG
-            printf("[m_get_all] got %s\n", members[i]->name);
-#endif
-            a[c]=members[i];
-            c++;
-        }
-    }
-}
-
-void m_get_all2(T_Record* a[]){
-    int i;
-    for(i=0; i<MAX_MEMBERS; i++){
-        a[i]=members[i];
-    }
-}
-
-int m_getid(T_Record* p) {
-    return p->id;
-}
-
-char* m_getname(T_Record* p){
-    return p->name;
-}
-
-char* m_getmembership(T_Record* p) {
-    return p->membership;
-}
-
-char* m_getphone(T_Record* p){
-    return p->phone;
-}
-
-int m_getbirthdate(T_Record* p){
-    return p->birthdate;
-}
-
-char* m_getcity(T_Record* p){
-    return p->city;
-}
-
-int m_get_all_by_id(T_Record* a[], int n){
-    // 회원이름에 문자열이 포함된 모든 레코드 포인터의 배열 만들기    
-    int i, c=0;
-    for(i=0; i<MAX_MEMBERS; i++){
-        if(members[i]!=NULL && members[i]->id == n){
-            a[c]=members[i];
-            c++;
-        }
-    }
-    return c;
-} 
-
-int m_get_all_by_name(T_Record* a[], char* n){
-    // 회원이름에 문자열이 포함된 모든 레코드 포인터의 배열 만들기    
-    int i, c=0;
-    for(i=0; i<MAX_MEMBERS; i++){
-        if(members[i]!=NULL && strstr(members[i]->name, n)){
-            a[c]=members[i];
-            c++;
-        }
-    }
-    return c;
-} 
-
-int m_get_all_by_membership(T_Record* a[], char* m){
-    // 회원등급이 문자열과 일치하는 모든 레코드 포인터의 배열 만들기 
-    int i, c=0;
-    for(i=0; i<MAX_MEMBERS; i++){
-        if(members[i]!=NULL && (strcmp(members[i]->membership, m)==0)){
-            a[c]=members[i];
-            c++;
-        }
-    }
-    return c;
-}
-
-void m_init(){
-    // 모든 레코드 제거    
-    int i;
-    for(i=0; i<MAX_MEMBERS; i++){
-        if(members[i]!=NULL) {
-#ifdef DEBUG
-            printf("[m_init] deleting %s\n", members[i]->name);
-#endif
-            free(members[i]);
-        }
-        members[i] = NULL;
-    }
-    _count = 0;
-
-} 
-
-char* m_to_string_save(T_Record* p){
-    static char str[120];
-    sprintf(str, "%d %s %s %s %d %s", p->id, p->name, p->membership, p->phone, p->birthdate, p->city);
-    return str;
-}
-
-void m_sort_record_by_id(T_Record* a[], int size) {
-    for (int i = 0; i < size; i++) {
-        for (int j = 1; j < size; j++) {
-            if (a[j-1]->id > a[j]->id) {
-                m_swap_record(a[j-1], a[j]);
-            }
-        }
-    }
-}
-
-void m_sort_record_by_name(T_Record* a[], int size) {
-    for (int i = 0; i < size; i++) {
-        for (int j = 1; j < size; j++) {
-            if (strcmp(a[j-1]->name, a[j]->name) > 0) {
-                m_swap_record(a[j-1], a[j]);
-            }
-        }
-    }
-}
-
-void m_sort_record_by_membership(T_Record* a[], int size) {
-    for (int i = 0; i < size; i++) {
-        for (int j = 1; j < size; j++) {
-            int grade_j_1 = m_membership_grade(a[j-1]->membership);
-            int grade_j = m_membership_grade(a[j]->membership);
-
-            if (grade_j_1 > grade_j) {
-                m_swap_record(a[j-1], a[j]);
-            }
-        }
-    }
-}
-
-void m_swap_record(T_Record* a, T_Record* b) {
-    T_Record temp;
-    temp = *a;
-    *a = *b;
-    *b = temp;
-}
-
-int m_membership_grade(char* m) {
-    if (strcmp(m, "VIP") == 0) {
-        return 1;
-    }
-    else if (strcmp(m, "Gold") == 0) {
-        return 2;
-    }
-    else if (strcmp(m, "Silver") == 0) {
-        return 3;
-    }
-    else if (strcmp(m, "Family") == 0) {
-        return 4;
-    }
-    else {
-        return -1;
-    }
+void sigint_handler(int sig){
+	if(getpid()==parent_pid){
+		if(ans.distance == 2000000008)
+			printf("No child processes have been terminated. So there is no path found\n");
+		printf("\nShortest distance upto now: %d  The number of route upto now : %lld  \nShortest route upto now: %s\n",ans.distance,route_count*2*3*4*5*6*7*8*9*10*11*12 ,ans.best_route_uptonow);}
+	exit(0);
 }
